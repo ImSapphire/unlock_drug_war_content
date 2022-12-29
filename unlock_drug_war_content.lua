@@ -1,5 +1,9 @@
+util.require_natives(1672190175)
+
 local SetTunable
+local SetTunables
 local RevertTunable
+local RevertTunables
 do
 	local og_tunable_values = {}
 	function SetTunable(tunable: number, type: string, value)
@@ -9,39 +13,72 @@ do
 		end
 		memory["write_"..type](memory.script_global(262145 + tunable), value)
 	end
+	function SetTunables(tunables: table)
+		for k, v in tunables do
+			SetTunable(v[1], v[2], v[3])
+		end
+	end
 	function RevertTunable(tunable: number, type: string)
 		if (og_value := og_tunable_values[tunable]) ~= nil then
 			memory["write_"..type](memory.script_global(262145 + tunable), og_value)
 			og_tunable_values[tunable] = nil
 		end
 	end
+	function RevertTunables(tunables: table)
+		for k, v in tunables do
+			RevertTunable(v[1], v[2])
+		end
+	end
 end
 
-util.create_tick_handler(function()
-	if not SCRIPT_CAN_CONTINUE then return end
-	SetTunable(32702, "byte", 1)
-	SetTunable(32688, "byte", 0)
-	SetTunable(33770, "byte", 1) -- XM22_TAXI_DRIVER_ENABLE
-	SetTunable(33790, "byte", 1) -- COLLECTABLES_DEAD_DROP
-	SetTunable(33799, "byte", 1) -- XM22_GUN_VAN_AVAILABLE
-	for i = 0, 29 do -- XM22_GUN_VAN_LOCATION_ENABLED_[0 to 29]
-		SetTunable(33800 + 1 + i, "byte", 1)
-	end
-	for i = 33957, 34112 do -- -- 33957 to 33972 is ENABLE_VEHICLE_*, others are clothing
-		SetTunable(i, "byte", 1)
+local function tunable_toggle(menu_name, command_names, help_text, tunables: table)
+	return menu.my_root():toggle_loop(menu_name, command_names, help_text, function()
+		SetTunables(tunables)
+	end, function()
+		RevertTunables(tunables)
+	end)
+end
+
+tunable_toggle("Unlock 50 Car Garage", {}, "Unlocks the 50-car garage for purchase on www.dynasty8realestate.com.", {
+	{32702, "byte", 1},
+	{32688, "byte", 0},
+})
+
+tunable_toggle("Unlock Taxi Missions", {}, "", {
+	{33770, "byte", 1},
+})
+
+tunable_toggle("Unlock \"G's Cache\" Collectables", {}, "", {
+	{33790, "byte", 1}
+})
+
+local gun_van_tunables = {
+	{33799, "byte", 1}
+}
+for i = 0, 29 do -- XM22_GUN_VAN_LOCATION_ENABLED_[0 to 29]
+	table.insert(gun_van_tunables, {33800 + 1 + i, "byte", 1})
+end
+tunable_toggle("Unlock Gun Van", {}, "", gun_van_tunables)
+
+menu.my_root():list_action("Set Gun Van Position", {}, "", { {"Default (Random)"}, {"My Position"} }, function(value)
+	memory.write_float(memory.script_global(1956117 + 0), 0)
+	memory.write_float(memory.script_global(1956117 + 1), 0)
+	memory.write_float(memory.script_global(1956117 + 2), 0)
+	if value == 2 then
+		if HUD.GET_FIRST_BLIP_INFO_ID(844) ~= 0 then
+			util.yield(3000)
+		end
+		local pos = entities.get_pos(entities.handle_to_pointer(players.user_ped()))
+		memory.write_float(memory.script_global(1956117 + 0), pos.x)
+		memory.write_float(memory.script_global(1956117 + 1), pos.y)
+		memory.write_float(memory.script_global(1956117 + 2), pos.z)
 	end
 end)
 
-util.on_stop(function()
-	RevertTunable(32702, "byte")
-	RevertTunable(32688, "byte")
-	RevertTunable(33770, "byte") -- XM22_TAXI_DRIVER_ENABLE
-	RevertTunable(33790, "byte") -- COLLECTABLES_DEAD_DROP
-	RevertTunable(33799, "byte") -- XM22_GUN_VAN_AVAILABLE
-	for i = 0, 29 do -- XM22_GUN_VAN_LOCATION_ENABLED_[0 to 29]
-		RevertTunable(33800 + 1 + i, "byte")
-	end
-	for i = 33957, 34112 do -- -- 33957 to 33972 is ENABLE_VEHICLE_*, others are clothing
-		RevertTunable(i, "byte")
+local vehicles_toggle
+vehicles_toggle=menu.my_root():toggle("Unlock Vehicles", {}, "", function(on)
+	if on then
+		vehicles_toggle.value = false
+		menu.ref_by_path("Online>Enhancements>Disable Dripfeeding"):focus()
 	end
 end)
