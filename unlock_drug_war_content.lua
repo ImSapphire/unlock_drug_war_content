@@ -1,3 +1,5 @@
+util.require_natives(1672190175)
+
 local SetTunable
 local SetTunables
 local RevertTunable
@@ -57,6 +59,21 @@ for i = 0, 29 do -- XM22_GUN_VAN_LOCATION_ENABLED_[0 to 29]
 	table.insert(gun_van_tunables, {33800 + 1 + i, "byte", 1})
 end
 tunable_toggle("Unlock Gun Van", {}, "", gun_van_tunables)
+
+menu.my_root():list_action("Set Gun Van Position", {}, "", { {"Default (Random)"}, {"My Position"} }, function(value)
+	memory.write_float(memory.script_global(1956117 + 0), 0)
+	memory.write_float(memory.script_global(1956117 + 1), 0)
+	memory.write_float(memory.script_global(1956117 + 2), 0)
+	if value == 2 then
+		if HUD.GET_FIRST_BLIP_INFO_ID(844) ~= 0 then
+			util.yield(3000)
+		end
+		local pos = entities.get_pos(entities.handle_to_pointer(players.user_ped()))
+		memory.write_float(memory.script_global(1956117 + 0), pos.x)
+		memory.write_float(memory.script_global(1956117 + 1), pos.y)
+		memory.write_float(memory.script_global(1956117 + 2), pos.z)
+	end
+end)
 
 local vehicles_toggle
 vehicles_toggle=menu.my_root():toggle("Unlock Vehicles", {}, "", function(on)
